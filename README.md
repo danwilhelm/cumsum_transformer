@@ -1,4 +1,4 @@
-# How a Transformer Computes the Cumulative Sum
+# How a Transformer Computes the Cumulative Sum Sign
 **Author:** Dan Wilhelm, dan@danwilhelm.com
 
 We investigate how a one-layer attention+feed-forward transformer computes the cumulative sum. I've written the investigation conversationally, providing numerous examples and insights.
@@ -19,7 +19,7 @@ Thank you to the puzzle author Callum McDougall! I have been reverse-engineering
 0. Introduction
 1. All 24 embedding channels directly encode token sign and magnitude
 2. Attention softmax equally attends to each token
-3. Equally-divided attention computes the cumulative mean
+3. Equally-divided attention computes the expanding mean
 4. Feed-forward network "cleans up" the signal
 5. What about the zero unembed pattern?
 6. Designing a 38-weight attention-only cumsum circuit
