@@ -71,20 +71,21 @@ class CumsumModel:
 
         # order: [0, +1, +2, +3, +4, +5, -5, -4, -3, -2, -1]  very literal, direct indexing
         self.embeds = np.array([self.embed_labels, -self.embed_labels], dtype=np.float64).T / 100.             # (11,2)
-        self.pos_embeds = np.zeros((self.seq_len, self.d_embd))                                                # (20,2)
-        self.attn_wq = np.full((self.d_embd,self.d_head), attn_value); self.attn_bq = np.zeros(self.d_head)    # (2,1)  (1,)
-        self.attn_wk = np.full((self.d_embd,self.d_head), attn_value); self.attn_bk = np.zeros(self.d_head)    # (2,1)  (1,)
-        self.attn_wv = np.array([[1.], [0.]]); self.attn_bv = np.zeros(self.d_head)                            # (2,1)  (1,)
-        self.attn_wo = np.array([[250., -250.]]); self.attn_bo = np.array([0.3, 0.3])                          # (1,2)  (2,)
+        self.pos_embeds = np.zeros((self.seq_len, self.d_embd))                                                # (20,2)*, where *=all zeros
+        self.attn_wq = np.full((self.d_embd,self.d_head), attn_value); self.attn_bq = np.zeros(self.d_head)    # (2,1)  (1,)*
+        self.attn_wk = np.full((self.d_embd,self.d_head), attn_value); self.attn_bk = np.zeros(self.d_head)    # (2,1)  (1,)*
+        self.attn_wv = np.array([[1.], [0.]]); self.attn_bv = np.zeros(self.d_head)                            # (2,1)  (1,)*
+        self.attn_wo = np.array([[500., -500.]]); self.attn_bo = np.array([1., 1.])                            # (1,2)  (2,)
         
         self.attn_mask = np.tril(np.full((self.seq_len, self.seq_len), True), k=0)
         self.attn_ignore = softmax_ignore_value
 
-        self.unembed_w = np.array([[-10.0, 2.0, 10.0], [10.0, 2.0, -10.]]); self.unembed_b = np.array([0.2])   # (2,3) (1,)
+        self.unembed_w = np.array([[-10.0, 1.0, 10.0], [10.0, 1.0, -10.0]]); self.unembed_b = np.array([0.0])   # (2,3) (1,)*
+
         
         # MHA equivalent coefs
-        self.mha_coefs = (self.attn_wv @ self.attn_wo).T                # rows=output pos (as a func of input pos)  (24,24) 
-        self.mha_biases = self.attn_bv @ self.attn_wo + self.attn_bo    # (24,)
+        self.mha_coefs = (self.attn_wv @ self.attn_wo).T                # rows=output pos (as a func of input pos)  (2,2) 
+        self.mha_biases = self.attn_bv @ self.attn_wo + self.attn_bo    # (2,)
 
 
     def run(self, toks_in):

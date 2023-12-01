@@ -4,7 +4,7 @@
 We investigate how a one-layer attention+feed-forward transformer computes the cumulative sum. I've written the investigation conversationally, providing numerous examples and insights.
 
 Of particular interest, we:
-1. create a 39-weight attention-only circuit with smaller loss than the provided model;
+1. design a 38-weight attention-only circuit with smaller loss than the provided model;
 2. prove that an equally-attended attention block is equivalent to a single linear projection (of the prior-input mean!); and
 3. provide an independent transformer implementation to make it easier to modify the internals.
 
@@ -22,5 +22,5 @@ Thank you to the puzzle author Callum McDougall! I have been reverse-engineering
 3. Equally-divided attention computes the cumulative mean
 4. Feed-forward network "cleans up" the signal
 5. What about the zero unembed pattern?
-6. A minimal attention-only cumsum circuit
+6. Designing a 38-weight attention-only cumsum circuit
 7. (Appendix) Rewriting two linear transforms as one
