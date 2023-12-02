@@ -9,7 +9,7 @@ Of particular interest, we:
 3. provide an independent transformer implementation to make it easier to modify the internals.
 
 
-Thank you to the puzzle author Callum McDougall! I have been reverse-engineering significantly more complex transformers for a while now, so this was a nice break. You may find more information about the challenge and monthly problem series here: 
+This is my proposed solution to a monthly puzzle authored by Callum McDougall! You may find more information about the challenge and monthly problem series here:
 - [Problem GitHub page](https://github.com/callummcdougall/ARENA_2.0/tree/main/chapter1_transformers/exercises/monthly_algorithmic_problems/november23_cumsum)
 - [ARENA page](https://arena-ch1-transformers.streamlit.app/Monthly_Algorithmic_Problems)
 - [eindex dependency (needed to run the provided model)](https://github.com/callummcdougall/eindex/tree/main)
