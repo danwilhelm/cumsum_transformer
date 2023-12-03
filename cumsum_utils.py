@@ -115,12 +115,12 @@ def scatter(x, y, s=1, show=None, xlabel='', ylabel='', title='', xlim=None, yli
 
 
 def hline(ys, c='g', alpha=0.5, **kargs):
-    if type(ys) is not list: ys = [ys]
+    if type(ys) is not list and type(ys) is not np.ndarray: ys = [ys]
     for y in ys:
         plt.axhline(y, c=c, alpha=alpha, **kargs);
 
 def vline(xs, c='g', alpha=0.5, **kargs):
-    if type(xs) is not list: xs = [xs]
+    if type(xs) is not list and type(xs) is not np.ndarray: xs = [xs]
     for x in xs:
         plt.axvline(x, c=c, alpha=alpha, **kargs);
 

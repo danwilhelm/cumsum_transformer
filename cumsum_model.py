@@ -17,6 +17,14 @@ class CumsumModel:
 
 
     def __init__(self, state_dict=None, toks_in=None):
+        self.use_pos_embeds = True; self.use_attn_bias = True; self.use_mlp_bias = True
+        self.use_attn = True; self.use_attn_skip = True
+        self.use_mlp = True; self.use_unembed_skip = True
+
+        self.max_value = 5; self.n_classes = 3
+        self.embed_labels = np.array(list(range(self.max_value+1)) + list(range(-self.max_value,0)))  # [0, 1, .., max_value, -max_value, .., -1]
+        self.n_vocab = len(self.embed_labels)
+        
         if state_dict is None:
             self.load_minimal_transformer()
         else:
@@ -30,9 +38,6 @@ class CumsumModel:
         self.seq_len = 20; self.max_value = 5
         self.n_layers = 1; self.n_heads = 1
         self.d_embd = 24; self.d_head = 12; self.d_mlp = 8
-        self.mlp = True
-        self.embed_labels = list(range(self.max_value+1)) + list(range(-self.max_value,0))
-        self.n_vocab = len(self.embed_labels)
 
         self.embeds = state_dict['embed.W_E'].cpu().numpy()           # (11, 24)  <= order: [0, +1, +2, +3, +4, +5, -5, -4, -3, -2, -1]  very literal, direct indexing
         self.pos_embeds = state_dict['pos_embed.W_pos'].cpu().numpy() # (20, 24)  <= max seq len of 20
@@ -61,13 +66,12 @@ class CumsumModel:
     def load_minimal_transformer(self):
         attn_value = 9.5367431640625e-7         # exactly-stored 1/2^20
         softmax_ignore_value = -100000.
+        self.use_mlp = False
 
-        self.seq_len = 20; self.max_value = 5
+        self.seq_len = 20;
         self.n_layers = 1; self.n_heads = 1
         self.d_embd = 2; self.d_head = 1; self.d_mlp = 0
-        self.mlp = False; self.n_labels = 3
-        self.embed_labels = np.array(list(range(self.max_value+1)) + list(range(-self.max_value,0)))
-        self.n_vocab = len(self.embed_labels)
+
 
         # order: [0, +1, +2, +3, +4, +5, -5, -4, -3, -2, -1]  very literal, direct indexing
         self.embeds = np.array([self.embed_labels, -self.embed_labels], dtype=np.float64).T / 100.             # (11,2)
@@ -80,7 +84,7 @@ class CumsumModel:
         self.attn_mask = np.tril(np.full((self.seq_len, self.seq_len), True), k=0)
         self.attn_ignore = softmax_ignore_value
 
-        self.unembed_w = np.array([[-10.0, 1.0, 10.0], [10.0, 1.0, -10.0]]); self.unembed_b = np.array([0.0])   # (2,3) (1,)*
+        self.unembed_w = np.array([[-10.0, 1.0, 10.0], [10.0, 1.0, -10.0]]); self.unembed_b = np.array([0.0])  # (2,3) (1,)*
 
         
         # MHA equivalent coefs
@@ -88,44 +92,55 @@ class CumsumModel:
         self.mha_biases = self.attn_bv @ self.attn_wo + self.attn_bo    # (2,)
 
 
-    def run(self, toks_in):
+    def run(self, toks_in, use_pos_embeds=None,
+            use_mlp=None, use_attn=None,
+            use_attn_bias=None, use_mlp_bias=None,
+            use_attn_skip=None, use_unembed_skip=None):
+        
+        if use_pos_embeds is None: use_pos_embeds = self.use_pos_embeds  # Allow override of model values
+        if use_mlp is None: use_mlp = self.use_mlp
+        if use_attn is None: use_attn = self.use_attn
+        if use_mlp_bias is None: use_mlp_bias = self.use_mlp_bias
+        if use_attn_bias is None: use_attn_bias = self.use_attn_bias
+        if use_attn_skip is None: use_attn_skip = self.use_attn_skip
+        if use_unembed_skip is None: use_unembed_skip = self.use_unembed_skip
+
         self.toks_in = np.array(toks_in) - self.max_value
         self.n_toks_in = len(self.toks_in)
         self.embeds_in = self.embeds[self.toks_in]
-        self.pos_embeds_in = self.pos_embeds[:self.n_toks_in]
+        self.pos_embeds_in = self.pos_embeds[:self.n_toks_in] if use_pos_embeds else np.zeros_like(self.embeds_in)
         self.stream_in = self.embeds_in + self.pos_embeds_in
 
         # ATTENTION
         self.attn_in = self.stream_in                               # (toks,24)
-        self.attn_q = self.attn_in @ self.attn_wq + self.attn_bq    # (toks,24) @ (24,12) => (toks,12)
-        self.attn_k = self.attn_in @ self.attn_wk + self.attn_bk    # (toks,24) @ (24,12) => (toks,12)
-        self.attn_v = self.attn_in @ self.attn_wv + self.attn_bv    # (toks,24) @ (24,12) => (toks,12)
+        self.attn_out = np.zeros_like(self.stream_in)
+        if use_attn:
+            self.attn_q = self.attn_in @ self.attn_wq + self.attn_bq    # (toks,24) @ (24,12) => (toks,12)
+            self.attn_k = self.attn_in @ self.attn_wk + self.attn_bk    # (toks,24) @ (24,12) => (toks,12)
+            self.attn_v = self.attn_in @ self.attn_wv + self.attn_bv    # (toks,24) @ (24,12) => (toks,12)
 
-        # [(toks,12) @ (12,toks) => (toks,toks) + (toks,toks)] @ (toks,12) => (toks,12)
-        self.attn_scores = np.where(self.attn_mask[:self.n_toks_in, :self.n_toks_in],
-                                    self.attn_q @ self.attn_k.T / np.sqrt(self.d_head),
-                                    self.attn_ignore)
-        self.attn_pattern = self.softmax(self.attn_scores)
-        self.attn = self.attn_pattern @ self.attn_v
+            # [(toks,12) @ (12,toks) => (toks,toks) + (toks,toks)] @ (toks,12) => (toks,12)
+            self.attn_scores = np.where(self.attn_mask[:self.n_toks_in, :self.n_toks_in],
+                                        self.attn_q @ self.attn_k.T / np.sqrt(self.d_head),
+                                        self.attn_ignore)
+            self.attn_pattern = self.softmax(self.attn_scores)
+            self.attn = self.attn_pattern @ self.attn_v
 
-        self.attn_out = self.attn @ self.attn_wo + self.attn_bo              # (toks,12) @ (12,24) + (,12) => (toks,12)
+            self.attn_out = self.attn @ self.attn_wo + (self.attn_bo if use_attn_bias else 0.0)              # (toks,12) @ (12,24) + (,12) => (toks,12)
 
         # MLP
-        self.mlp_in = self.stream_in + self.attn_out
-        self.mlp_out = 0.0
-        if self.mlp:
+        self.mlp_in = self.attn_out + (self.stream_in if use_attn_skip else 0.0)   # Skip connection
+        self.mlp_out = np.zeros_like(self.attn_out)
+        if use_mlp:
             self.hidden = self.mlp_in @ self.mlp_win + self.mlp_bin          # (toks,24) @ (24,8) + (8,) => (toks,8)
             self.hidden_out = np.maximum(self.hidden, 0)                     # relu => (toks,8)
-            self.mlp_out = self.hidden_out @ self.mlp_wout + self.mlp_bout   # (toks,8) @ (8,24) + (24,) => (toks,24)            
+            self.mlp_out = self.hidden_out @ self.mlp_wout + (self.mlp_bout if use_mlp_bias else 0.0)   # (toks,8) @ (8,24) + (24,) => (toks,24)
 
         # UNEMBED
-        self.stream_out = self.mlp_in + self.mlp_out
+        self.stream_out = self.mlp_out + (self.mlp_in if use_unembed_skip else 0.0)    # Skip connection
         self.logits = self.stream_out @ self.unembed_w + self.unembed_b      # (toks,24) @ (24,3) + (3,) => (3,)
         self.logprobs = self.log_softmax(self.logits)
         self.probs = self.softmax(self.logprobs)
         self.labels = np.argmax(self.probs, axis=1)
-        
-        self.probs_correct = np.max(self.probs, axis=1)         # np.choose(self.labels, self.probs.T)
-        self.logprobs_correct = np.max(self.logprobs, axis=1)   # np.choose(self.labels, self.logprobs.T)
 
         return self.probs
