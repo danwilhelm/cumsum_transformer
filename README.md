@@ -5,8 +5,9 @@ We investigate how a one-layer attention+feed-forward transformer computes the c
 
 Of particular interest, we:
 1. design a 38-weight attention-only circuit with smaller loss than the provided model;
-2. prove that an equally-attended attention block is equivalent to a single linear projection (of the prior-input mean!); and
-3. provide an independent transformer implementation to make it easier to modify the internals.
+2. manually remove the MLP and rewire a trained circuit, retaining 100% accuracy;
+3. prove that an equally-attended attention block is equivalent to a single linear projection (of the prior-input mean!); and
+4. provide an independent transformer implementation to make it easier to modify the internals.
 
 
 This is my proposed solution to a monthly puzzle authored by Callum McDougall! You may find more information about the challenge and monthly problem series here:
@@ -22,5 +23,7 @@ This is my proposed solution to a monthly puzzle authored by Callum McDougall! Y
 3. Equally-divided attention computes the expanding mean
 4. Feed-forward network "cleans up" the signal
 5. What about the zero unembed pattern?
-6. Designing a 38-weight attention-only cumsum circuit
-7. (Appendix) Rewriting two linear transforms as one
+6. Surgically removing the MLP, retaining 100% accuracy
+7. Designing a 38-weight attention-only cumsum circuit
+8. Appendix A. Rewriting two linear transforms as one
+9. Appendix B. Designing a 38-weight circuit with skip connections
